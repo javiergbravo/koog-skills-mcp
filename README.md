@@ -314,6 +314,17 @@ MCP client (Claude Code, Cursor, etc.)
 
 3. **Query time**: The MCP client calls `search_skills("rag vector store")`, gets ranked results, then calls `get_skill("rag-vector-store")` to read the full documentation with code examples.
 
+## Automated Maintenance
+
+The skills in this repository are kept up to date with new koog releases through an automated process:
+
+1. **Weekly check** — A scheduled job (running on a self-hosted server) polls the [JetBrains/koog](https://github.com/JetBrains/koog) GitHub API every Monday at 09:00 UTC to detect new releases.
+2. **Issue creation** — When a new release is found, a GitHub Issue is automatically created with the full release notes, a link to the version diff, and detailed instructions.
+3. **Copilot coding agent** — The issue is assigned to the GitHub Copilot coding agent, which analyzes the koog changes and opens a PR updating the affected `skills/` files.
+4. **Manual review** — The maintainer reviews and merges the PR.
+
+The current koog version tracked by this MCP is stored in [`.koog-version`](./.koog-version).
+
 ## Inspired By
 
 - [android-skills-mcp](https://github.com/skydoves/android-skills-mcp) by [skydoves](https://github.com/skydoves) — the original Android skills MCP server that this project is based on.
