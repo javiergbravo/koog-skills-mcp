@@ -1,7 +1,16 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(git *)"
-    ]
-  }
+	"permissions": {
+		"allow": [
+			"Bash(git *)",
+			"Bash(npm view *)",
+			"Bash(pnpm test *)",
+			"Bash(find . -name \"*.config.*\" -not -path \"*/node_modules/*\" -not -path \"*/.git/*\")",
+			"Bash(find . -name \"*.test.*\" -not -path \"*/node_modules/*\" -not -path \"*/.git/*\")",
+			"Bash(find . -name \"*.spec.*\" -not -path \"*/node_modules/*\" -not -path \"*/.git/*\")",
+			"WebFetch(domain:zod.dev)",
+			"WebFetch(domain:vite.dev)",
+			"Bash(cat biome.json)",
+			"Bash(cat biome.jsonc)"
+		]
+	}
 }

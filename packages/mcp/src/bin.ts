@@ -1,28 +1,28 @@
 #!/usr/bin/env node
-import { parseArgs } from 'node:util';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import pkg from '../package.json' with { type: 'json' };
-import { createServer } from './server.js';
+import { parseArgs } from "node:util";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import pkg from "../package.json" with { type: "json" };
+import { createServer } from "./server.js";
 
 const VERSION = pkg.version;
 
 const { values } = parseArgs({
-  options: {
-    'skills-dir': { type: 'string' },
-    bundle: { type: 'string' },
-    version: { type: 'boolean', short: 'v' },
-    help: { type: 'boolean', short: 'h' },
-  },
-  allowPositionals: false,
+	options: {
+		"skills-dir": { type: "string" },
+		bundle: { type: "string" },
+		version: { type: "boolean", short: "v" },
+		help: { type: "boolean", short: "h" },
+	},
+	allowPositionals: false,
 });
 
 if (values.version) {
-  console.log(VERSION);
-  process.exit(0);
+	console.log(VERSION);
+	process.exit(0);
 }
 
 if (values.help) {
-  console.log(`koog-skills-mcp ${VERSION}
+	console.log(`koog-skills-mcp ${VERSION}
 
 MCP server exposing the Koog framework documentation.
 
@@ -38,13 +38,13 @@ Options:
 The server speaks MCP over stdio. Add to Claude Code with:
   claude mcp add --global koog-skills -- npx -y koog-skills-mcp
 `);
-  process.exit(0);
+	process.exit(0);
 }
 
 const server = await createServer({
-  skillsDir: values['skills-dir'],
-  bundlePath: values.bundle,
-  version: VERSION,
+	skillsDir: values["skills-dir"],
+	bundlePath: values.bundle,
+	version: VERSION,
 });
 
 const transport = new StdioServerTransport();
