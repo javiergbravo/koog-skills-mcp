@@ -201,6 +201,8 @@ import ai.koog.agents.ext.simple.SimpleOpenAIExecutorKt;
 import ai.koog.agents.ext.llm.OpenAIModels;
 import ai.koog.agents.memory.feature.ChatMemory;
 
+import java.util.Scanner;
+
 public class ChatMemoryExample {
     public static void main(String[] args) {
         String sessionId = "my-conversation";
