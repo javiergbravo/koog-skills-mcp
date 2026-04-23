@@ -309,6 +309,71 @@ data class AgentSnapshot(
 )
 ```
 
+> **Security:** `conversationHistory` and `toolCallHistory` may contain sensitive data including
+> user inputs, PII, credentials passed as tool arguments, and confidential business information.
+> Treat snapshot files with the same care as any sensitive data store.
+
+## Securing Snapshots
+
+### Encrypt Snapshot Files
+
+Use an encrypted storage backend for snapshots that contain sensitive data. Combine with
+AES-256-GCM encryption (see [Memory Encryption](../../memory-and-rag/memory-encryption/SKILL.md)):
+
+```kotlin
+class EncryptedFileSnapshotStorage(
+    private val directory: String,
+    private val encryptor: Aes256GCMEncryptor
+) : SnapshotStorage {
+    override suspend fun save(agentId: String, snapshot: AgentSnapshot) {
+        val json = Json.encodeToString(snapshot)
+        val encrypted = encryptor.encrypt(json.toByteArray())
+        File(directory, "$agentId.snap").writeBytes(encrypted)
+    }
+
+    override suspend fun load(agentId: String): AgentSnapshot? {
+        val file = File(directory, "$agentId.snap")
+        if (!file.exists()) return null
+        val decrypted = encryptor.decrypt(file.readBytes())
+        return Json.decodeFromString(String(decrypted))
+    }
+
+    override suspend fun delete(agentId: String) {
+        File(directory, "$agentId.snap").delete()
+    }
+}
+
+install(Snapshot) {
+    storage = EncryptedFileSnapshotStorage(
+        directory = "snapshots/",
+        encryptor = Aes256GCMEncryptor(secretKey = System.getenv("SNAPSHOT_ENCRYPTION_KEY")
+            ?: error("SNAPSHOT_ENCRYPTION_KEY not set"))
+    )
+}
+```
+
+### File System Permissions
+
+Restrict access to the snapshot directory to the process user only:
+
+```bash
+# Unix/Linux — restrict to owner only
+chmod 700 snapshots/
+chmod 600 snapshots/*.snap
+```
+
+### Retention Policy
+
+Snapshots accumulate over time and consume disk space. Implement a retention policy:
+
+```kotlin
+// Delete snapshots older than 7 days
+val retentionDays = 7L
+File("snapshots/").listFiles()
+    ?.filter { it.lastModified() < System.currentTimeMillis() - retentionDays * 86_400_000 }
+    ?.forEach { it.delete() }
+```
+
 ## Java API
 
 ```java
@@ -340,6 +405,9 @@ agent.restoreFromCheckpoint("before-operation");
 4. **Test recovery** — Regularly test crash recovery to ensure it works correctly
 5. **Use appropriate storage** — Choose storage based on durability requirements
 6. **Handle storage failures** — Implement fallback strategies for storage errors
+7. **Encrypt sensitive snapshots** — Use `EncryptedFileSnapshotStorage` when agents handle PII or confidential data
+8. **Restrict file permissions** — Set `chmod 700` on the snapshots directory
+9. **Rotate encryption keys** — Implement key rotation and re-encrypt old snapshots periodically
 
 ## Troubleshooting
 

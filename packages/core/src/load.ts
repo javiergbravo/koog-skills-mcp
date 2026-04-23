@@ -5,6 +5,9 @@ import type { Skill, SkillReferenceContent } from './types.js';
 
 const IGNORED_DIRS = new Set(['.git', 'node_modules', '.github', 'dist']);
 
+/** Maximum size (bytes) for a reference file read at runtime. */
+const MAX_REF_FILE_SIZE = 1024 * 1024; // 1 MiB
+
 function* walkSkillFiles(root: string): Generator<string> {
   const stack: string[] = [root];
   while (stack.length) {
@@ -48,9 +51,19 @@ export async function loadSkills(skillsRoot: string): Promise<Skill[]> {
 }
 
 export function loadSkillReferences(skill: Skill): SkillReferenceContent[] {
-  return skill.references.map((ref) => ({
-    relPath: ref.relPath,
-    absPath: ref.absPath,
-    content: ref.content ?? (existsSync(ref.absPath) ? readFileSync(ref.absPath, 'utf8') : ''),
-  }));
+  return skill.references.map((ref) => {
+    if (ref.content !== undefined) {
+      return { relPath: ref.relPath, absPath: ref.absPath, content: ref.content };
+    }
+    if (!existsSync(ref.absPath)) {
+      return { relPath: ref.relPath, absPath: ref.absPath, content: '' };
+    }
+    const st = statSync(ref.absPath);
+    if (st.size > MAX_REF_FILE_SIZE) {
+      throw new Error(
+        `Reference file exceeds size limit (${MAX_REF_FILE_SIZE} bytes): ${ref.absPath} (${st.size} bytes)`,
+      );
+    }
+    return { relPath: ref.relPath, absPath: ref.absPath, content: readFileSync(ref.absPath, 'utf8') };
+  });
 }

@@ -322,6 +322,70 @@ public class A2AExample {
 }
 ```
 
+## Security
+
+A2A servers expose agent capabilities over HTTP. Securing them is critical, especially when agents interact with external services or sensitive data.
+
+### Authentication
+
+Protect your A2A server with a bearer token or API key:
+
+```kotlin
+import io.ktor.server.application.*
+import io.ktor.server.auth.*
+import io.ktor.server.auth.bearer
+
+install(Authentication) {
+    bearer("a2a-auth") {
+        authenticate { credential ->
+            // Validate the bearer token against a known value loaded from the environment
+            val expected = System.getenv("A2A_SECRET_TOKEN")
+                ?: error("A2A_SECRET_TOKEN not set")
+            if (credential.token == expected) UserIdPrincipal("agent") else null
+        }
+    }
+}
+
+// Apply authentication to all A2A routes
+authenticate("a2a-auth") {
+    a2aServer(agent)
+}
+```
+
+### TLS / HTTPS
+
+Never expose an A2A server over plain HTTP in production. Use TLS:
+
+```kotlin
+embeddedServer(Netty, port = 8443, configure = {
+    sslConnector(
+        keyStore = loadKeyStore(),
+        keyAlias = "mykey",
+        keyStorePassword = { System.getenv("KEYSTORE_PASS").toCharArray() },
+        privateKeyPassword = { System.getenv("KEY_PASS").toCharArray() }
+    ) {}
+}) { a2aModule() }.start(wait = true)
+```
+
+For local development behind a TLS-terminating reverse proxy (nginx, Caddy), run your server on `localhost` and ensure the proxy is the only public-facing entry point.
+
+### Input Validation
+
+An A2A server receives task inputs from external agents — treat all incoming data as untrusted:
+
+```kotlin
+override suspend fun handleTask(task: A2ATask): A2AResult {
+    require(task.input.length <= 10_000) { "Task input exceeds maximum allowed length" }
+    // Validate input against expected schema before passing to the agent
+    val sanitized = sanitize(task.input)
+    return agent.run(sanitized)
+}
+```
+
+### Network Isolation
+
+For multi-agent systems on the same host, prefer running A2A servers on `localhost` with a local port rather than exposing them on `0.0.0.0`. Use an overlay network (e.g., Docker bridge) to limit inter-agent reachability.
+
 ## Best Practices
 
 1. **Define clear capabilities** — Each agent should have well-defined capabilities and schemas
@@ -329,7 +393,9 @@ public class A2AExample {
 3. **Use timeouts** — Set appropriate timeouts for inter-agent communication
 4. **Validate responses** — Validate agent responses before passing to the next step
 5. **Log interactions** — Log all inter-agent communication for debugging
-6. **Secure endpoints** — Use authentication for production A2A servers
+6. **Secure endpoints** — Use bearer-token authentication and TLS for all production A2A servers
+7. **Validate inputs** — Treat all incoming task inputs as untrusted; validate length and schema
+8. **Network isolation** — Restrict A2A server binding to `localhost` or a private network
 
 ## Troubleshooting
 

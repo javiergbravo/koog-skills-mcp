@@ -111,6 +111,7 @@ val encryptor = Aes256GCMEncryptor(secretKey = key)
 
 ```kotlin
 val key = config.property("memory.encryption.key").getString()
+// Ensure the config file itself is protected (restricted permissions, not committed to VCS)
 val encryptor = Aes256GCMEncryptor(secretKey = key)
 ```
 
@@ -124,15 +125,32 @@ import javax.crypto.spec.PBEKeySpec
 import java.security.SecureRandom
 import java.util.Base64
 
-fun deriveKey(password: String, salt: ByteArray = SecureRandom().generateSeed(16)): ByteArray {
-    val spec = PBEKeySpec(password.toCharArray(), salt, 65536, 256)
+/**
+ * Derives a 256-bit AES key from a password using PBKDF2-HMAC-SHA256.
+ *
+ * IMPORTANT: The returned [salt] must be stored alongside the encrypted data.
+ * You need the same salt to re-derive the key for decryption. If you lose the
+ * salt, decryption becomes impossible.
+ */
+data class DerivedKey(val encodedKey: String, val salt: ByteArray)
+
+fun deriveKey(password: String, salt: ByteArray = SecureRandom().generateSeed(32)): DerivedKey {
+    // 600,000 iterations — meets NIST SP 800-132 (2023) recommendation for PBKDF2-HMAC-SHA256
+    val spec = PBEKeySpec(password.toCharArray(), salt, 600_000, 256)
     val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-    return factory.generateSecret(spec).encoded
+    val keyBytes = factory.generateSecret(spec).encoded
+    return DerivedKey(encodedKey = Base64.getEncoder().encodeToString(keyBytes), salt = salt)
 }
 
-// Usage
-val derivedKey = Base64.getEncoder().encodeToString(deriveKey("my-secure-password"))
-val encryptor = Aes256GCMEncryptor(secretKey = derivedKey)
+// First run — derive and persist the salt alongside encrypted data
+val derived = deriveKey("my-secure-password")
+persistSalt(derived.salt) // store derived.salt in a secure location
+val encryptor = Aes256GCMEncryptor(secretKey = derived.encodedKey)
+
+// Subsequent runs — re-derive using the persisted salt
+val storedSalt = loadSalt()
+val reDerived = deriveKey("my-secure-password", salt = storedSalt)
+val encryptorForDecryption = Aes256GCMEncryptor(secretKey = reDerived.encodedKey)
 ```
 
 ## Complete Example with LongTermMemory

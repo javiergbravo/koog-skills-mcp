@@ -246,7 +246,16 @@ sealed class SafetyCheckResult {
 
 ### Threshold-Based Checks
 
+`ThresholdModerationModel` upgrades a `Flagged` result to `Blocked` when the confidence score from the underlying model exceeds the threshold. The delegate model must return a `ModerationResult.Flagged` result that includes a parseable confidence value.
+
 ```kotlin
+/**
+ * Wraps a [ModerationResult.Flagged] result: if the delegate model provides a
+ * confidence score above [threshold], the result is escalated to [ModerationResult.Blocked].
+ *
+ * Implement [extractConfidence] to parse the actual score from your delegate model's
+ * result (e.g., from a custom `reason` string format or a subclass that carries the score).
+ */
 class ThresholdModerationModel(
     private val delegate: ModerationModel,
     private val threshold: Double = 0.8
@@ -257,8 +266,7 @@ class ThresholdModerationModel(
 
         return when (result) {
             is ModerationResult.Flagged -> {
-                // Convert flag to block if confidence exceeds threshold
-                val confidence = extractConfidence(content)
+                val confidence = extractConfidence(result)
                 if (confidence > threshold) {
                     ModerationResult.Blocked(result.reason, result.categories)
                 } else {
@@ -269,9 +277,15 @@ class ThresholdModerationModel(
         }
     }
 
-    private fun extractConfidence(content: String): Double {
-        // Extract confidence from moderation response
-        return 0.5 // Placeholder
+    /**
+     * Override this to extract the numeric confidence from the flagged result.
+     * The default returns 0.0, meaning no escalation occurs unless overridden.
+     *
+     * Example: parse a reason string like "confidence=0.92" returned by your model.
+     */
+    protected open fun extractConfidence(result: ModerationResult.Flagged): Double {
+        val match = Regex("confidence=([0-9.]+)").find(result.reason)
+        return match?.groupValues?.getOrNull(1)?.toDoubleOrNull() ?: 0.0
     }
 
     override suspend fun moderateInput(content: String) = moderate(content)
@@ -413,6 +427,11 @@ class LengthLimitRule(private val maxLength: Int) : ModerationRule {
 
 ### LLM-Based Moderation
 
+> **Security note:** Always isolate user-supplied content from the instruction portion of the
+> prompt using clear delimiters. Without them, a user could inject instructions that override
+> the moderation logic (prompt injection). The example below uses XML-style delimiters and
+> strips the closing tag to prevent injection via content.
+
 ```kotlin
 class LLMBasedModerationModel(
     private val executor: PromptExecutor,
@@ -420,26 +439,35 @@ class LLMBasedModerationModel(
 ) : ModerationModel {
 
     override suspend fun moderate(content: String): ModerationResult {
+        // Prevent prompt injection: strip the closing delimiter from user content
+        val safeContent = content.replace("</CONTENT>", "[TAG_REMOVED]")
+
         val prompt = """
-            Analyze the following content for safety and appropriateness.
+            Analyze the content between the <CONTENT> tags for safety and appropriateness.
             Categories to check: hate, violence, self-harm, sexual, harassment, spam.
-            
-            Content: "$content"
-            
-            Respond with JSON: {"safe": true/false, "categories": [...], "reason": "..."}
+
+            <CONTENT>
+            $safeContent
+            </CONTENT>
+
+            Respond with valid JSON only, no explanation:
+            {"safe": true or false, "categories": ["..."], "reason": "..."}
         """.trimIndent()
 
-        val response = executor.execute(prompt, model)
-        val parsed = Json.parseToJsonElement(response).jsonObject
+        return try {
+            val response = executor.execute(prompt, model)
+            val parsed = Json.parseToJsonElement(response).jsonObject
 
-        val safe = parsed["safe"]?.jsonPrimitive?.booleanOrNull ?: true
-        val categories = parsed["categories"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
-        val reason = parsed["reason"]?.jsonPrimitive?.content ?: ""
+            val safe = parsed["safe"]?.jsonPrimitive?.booleanOrNull
+                // Fail-closed: if the response can't be parsed, treat as unsafe
+                ?: return ModerationResult.Blocked("Moderation response could not be parsed", listOf("moderation-error"))
+            val categories = parsed["categories"]?.jsonArray?.map { it.jsonPrimitive.content } ?: emptyList()
+            val reason = parsed["reason"]?.jsonPrimitive?.content ?: ""
 
-        return if (safe) {
-            ModerationResult.Allowed
-        } else {
-            ModerationResult.Blocked(reason, categories)
+            if (safe) ModerationResult.Allowed else ModerationResult.Blocked(reason, categories)
+        } catch (e: Exception) {
+            // Fail-closed: if the moderation call fails, block the content
+            ModerationResult.Blocked("Moderation check failed: ${e.message}", listOf("moderation-error"))
         }
     }
 

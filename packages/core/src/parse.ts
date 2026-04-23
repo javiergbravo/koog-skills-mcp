@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { basename, dirname, relative, resolve } from 'node:path';
+import { basename, dirname, relative, resolve, sep } from 'node:path';
 import matter from 'gray-matter';
 import { SkillFrontmatterSchema } from './schema.js';
 import type { Skill, SkillFrontmatter, SkillReferenceRef } from './types.js';
@@ -44,7 +44,16 @@ export function parseSkillFile(skillMdPath: string, opts: ParseSkillOptions): Sk
   }
   const references: SkillReferenceRef[] = Array.from(refSet)
     .sort()
-    .map((relPath) => ({ relPath, absPath: resolve(dir, relPath) }));
+    .map((relPath) => {
+      const resolvedAbsPath = resolve(dir, relPath);
+      // Guard against path traversal: reference must remain inside the skill's directory
+      if (resolvedAbsPath !== dir && !resolvedAbsPath.startsWith(dir + sep)) {
+        throw new Error(
+          `Reference path escapes skill directory at ${absPath}: "${relPath}" resolves to "${resolvedAbsPath}"`,
+        );
+      }
+      return { relPath, absPath: resolvedAbsPath };
+    });
 
   return {
     name: frontmatter.name,

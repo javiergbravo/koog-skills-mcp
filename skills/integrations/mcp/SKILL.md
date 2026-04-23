@@ -93,7 +93,9 @@ process.destroy()
 ```kotlin
 val process = ProcessBuilder("npx", "-y", "@modelcontextprotocol/server-postgres")
     .apply {
-        environment()["DATABASE_URL"] = "postgresql://user:pass@localhost:5432/mydb"
+        // Load credentials from environment variables — never hardcode them
+        environment()["DATABASE_URL"] = System.getenv("DATABASE_URL")
+            ?: error("DATABASE_URL environment variable not set")
         redirectErrorStream(true)
     }
     .start()
@@ -344,6 +346,9 @@ public class McpExample {
 3. **Timeout configuration** — Set appropriate timeouts for SSE connections
 4. **Tool discovery** — Use `McpToolRegistryProvider` for automatic tool discovery rather than manual registration
 5. **Error handling** — MCP tool errors are propagated as Koog tool errors; handle them in your agent's error strategy
+6. **Never hardcode credentials** — Pass secrets to MCP server processes via environment variables from `System.getenv()`, not as literal strings in code
+7. **Vet external MCP servers** — `npx -y <package>` downloads and executes npm packages without prompting for confirmation. Only use packages from trusted, well-maintained sources. Review the package source before adding it to production agents
+8. **Principle of least privilege for filesystem servers** — When using `@modelcontextprotocol/server-filesystem`, point it to the minimum required directory, not the entire filesystem
 
 ## Common MCP Servers
 

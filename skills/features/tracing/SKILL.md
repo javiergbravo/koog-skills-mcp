@@ -97,6 +97,60 @@ install(Tracing) {
 }
 ```
 
+## Security Considerations
+
+### Sensitive Data in Traces
+
+`traceLLMRequests = true` and `traceLLMResponses = true` capture **full prompts and completions**.
+These may include:
+
+- User-provided inputs containing PII (names, emails, medical data, etc.)
+- Credentials or API keys passed inadvertently in prompts
+- Confidential business logic embedded in system prompts
+
+> **Recommendation:** In production, either disable LLM request/response tracing entirely or
+> implement a sanitizer that redacts sensitive fields before writing trace output.
+
+### Sanitizing Traces
+
+```kotlin
+install(Tracing) {
+    traceLLMRequests = true
+    traceLLMResponses = true
+    onTrace { trace ->
+        val sanitized = sanitizeTrace(trace)
+        writeToSecureStore(sanitized)
+    }
+}
+
+fun sanitizeTrace(trace: AgentTrace): AgentTrace {
+    // Redact common PII patterns and secrets
+    val piiPatterns = listOf(
+        Regex("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z]{2,}\\b", RegexOption.IGNORE_CASE), // email
+        Regex("\\b\\d{3}-\\d{2}-\\d{4}\\b"),                                                   // SSN-like
+        Regex("(?i)(api[_-]?key|secret|password|token)\\s*[=:]\\s*\\S+")                       // key=value
+    )
+    var content = trace.content
+    for (pattern in piiPatterns) {
+        content = content.replace(pattern, "[REDACTED]")
+    }
+    return trace.copy(content = content)
+}
+```
+
+### Securing Trace Files
+
+Trace files written to disk can be as sensitive as log files. Apply the same protections:
+
+```bash
+# Restrict access to the owning process user
+chmod 700 traces/
+chmod 600 traces/*.log
+```
+
+Avoid shipping trace files to external systems (e.g., object storage, third-party observability
+platforms) without reviewing them for sensitive content first.
+
 ## Trace Output
 
 ### Sample Text Trace
@@ -311,12 +365,13 @@ var agent = AIAgent.builder(executor, model)
 
 ## Best Practices
 
-1. **Disable in production** — Tracing adds overhead; disable or use minimal tracing in production
+1. **Disable LLM tracing in production** — `traceLLMRequests` and `traceLLMResponses` capture full prompts which may contain PII; disable or sanitize them in production
 2. **Use file output** — Write traces to files for post-mortem analysis
 3. **Set thresholds** — Use slow operation thresholds to identify performance bottlenecks
 4. **Combine with EventHandler** — Use Tracing for high-level overview, EventHandler for specific events
 5. **Rotate trace files** — Implement log rotation for long-running agents
-6. **Redact sensitive data** — Filter out API keys and sensitive information from traces
+6. **Redact sensitive data** — Apply a sanitizer before exporting traces to any external system
+7. **Restrict trace file permissions** — Set `chmod 700` on the traces directory
 
 ## Troubleshooting
 
