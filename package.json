@@ -8,8 +8,8 @@
 	"scripts": {
 		"build": "pnpm -r build",
 		"test": "pnpm -r test",
-		"lint": "biome check .",
-		"format": "biome check --write .",
+		"lint": "biome check packages/core/src/ packages/mcp/src/ scripts/",
+		"format": "biome check --write packages/core/src/ packages/mcp/src/ scripts/",
 		"changeset": "changeset",
 		"version": "changeset version",
 		"release": "pnpm build && changeset version && git add . && git commit -m 'chore: release' && git tag v$(node -p \"require('./packages/mcp/package.json').version\") && git push && git push --tags",
