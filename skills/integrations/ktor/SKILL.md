@@ -1,7 +1,7 @@
 ---
 name: ktor-integration
 description: Integrate Koog AI agents with Ktor server using the koog-ktor plugin
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [ktor, server, plugin, http, web, backend]
 ---
@@ -15,8 +15,8 @@ The `koog-ktor` module provides a native Ktor plugin for hosting Koog AI agents 
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
-    implementation("ai.koog:koog-ktor:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:koog-ktor:1.0.0")
     implementation("io.ktor:ktor-server-core:3.1.1")
     implementation("io.ktor:ktor-server-netty:3.1.1")
     implementation("io.ktor:ktor-server-content-negotiation:3.1.1")
@@ -59,6 +59,8 @@ import ai.koog.agents.ktor.installKoog
 import ai.koog.agents.ktor.routing.agentRouting
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
 
 fun Application.agentModule() {
     installKoog {
@@ -158,6 +160,7 @@ fun Application.agentModule() {
 ```kotlin
 import io.ktor.server.response.*
 import io.ktor.http.*
+import io.ktor.server.request.*
 
 fun Application.agentModule() {
     installKoog {
@@ -269,6 +272,8 @@ routing {
 ## Health Checks
 
 ```kotlin
+import kotlinx.datetime.Clock
+
 routing {
     get("/health") {
         call.respond(mapOf(

@@ -1,7 +1,7 @@
 ---
 name: class-based-tools
 description: Create tools using SimpleTool class and ToolDescriptor in Koog for advanced tool definitions
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [simple-tool, tool-descriptor, class, schema, tool-descriptor-schemer]
 ---
@@ -18,8 +18,11 @@ Class-based tools provide more control over tool definitions, schemas, and execu
 import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.Tool
+import ai.koog.serialization.typeToken
 
-object CalculatorTool : SimpleTool<CalculatorTool.Args>() {
+object CalculatorTool : SimpleTool<CalculatorTool.Args>(
+    argsType = typeToken<Args>()
+) {
     override val descriptor = ToolDescriptor(
         name = "calculator",
         description = "Perform arithmetic calculations"
@@ -91,9 +94,11 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
-import ai.koog.agents.core.tools.Tool
+import ai.koog.serialization.typeToken
 
-object WebSearchTool : SimpleTool<WebSearchTool.Args>() {
+object WebSearchTool : SimpleTool<WebSearchTool.Args>(
+    argsType = typeToken<Args>()
+) {
     override val descriptor = ToolDescriptor(
         name = "web_search",
         description = "Search the web for current information",
@@ -151,8 +156,11 @@ For tools that need custom JSON schemas, use `ToolDescriptorSchemer`:
 ```kotlin
 import ai.koog.agents.core.tools.ToolDescriptorSchemer
 import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.serialization.typeToken
 
-object DatabaseQueryTool : SimpleTool<DatabaseQueryTool.Args>() {
+object DatabaseQueryTool : SimpleTool<DatabaseQueryTool.Args>(
+    argsType = typeToken<Args>()
+) {
 
     // Custom schema using ToolDescriptorSchemer
     override val descriptor = ToolDescriptorSchemer.create(
@@ -201,8 +209,12 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
+import ai.koog.serialization.typeToken
+import java.io.File
 
-object FileOperationTool : SimpleTool<FileOperationTool.Args>() {
+object FileOperationTool : SimpleTool<FileOperationTool.Args>(
+    argsType = typeToken<Args>()
+) {
     override val descriptor = ToolDescriptor(
         name = "file_operation",
         description = "Perform file operations (read, write, list)",
@@ -260,11 +272,14 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.tools.ToolParameterDescriptor
 import ai.koog.agents.core.tools.ToolParameterType
+import ai.koog.serialization.typeToken
 import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 
-object HttpRequestTool : SimpleTool<HttpRequestTool.Args>() {
+object HttpRequestTool : SimpleTool<HttpRequestTool.Args>(
+    argsType = typeToken<Args>()
+) {
     override val descriptor = ToolDescriptor(
         name = "http_request",
         description = "Make HTTP requests to external APIs",
@@ -307,13 +322,13 @@ object HttpRequestTool : SimpleTool<HttpRequestTool.Args>() {
 
     override suspend fun execute(args: Args): String {
         return try {
-            val response: HttpResponse = when (args.method.uppercase()) {
+            val response = when (args.method.uppercase()) {
                 "GET" -> client.get(args.url)
                 "POST" -> client.post(args.url) {
-                    args.body?.let { body = it }
+                    args.body?.let { setBody(it) }
                 }
                 "PUT" -> client.put(args.url) {
-                    args.body?.let { body = it }
+                    args.body?.let { setBody(it) }
                 }
                 "DELETE" -> client.delete(args.url)
                 else -> return "Unsupported method: ${args.method}"
@@ -331,7 +346,15 @@ object HttpRequestTool : SimpleTool<HttpRequestTool.Args>() {
 Class-based tools can maintain state:
 
 ```kotlin
-class CounterTool : SimpleTool<CounterTool.Args>() {
+import ai.koog.agents.core.tools.SimpleTool
+import ai.koog.agents.core.tools.ToolDescriptor
+import ai.koog.agents.core.tools.ToolParameterDescriptor
+import ai.koog.agents.core.tools.ToolParameterType
+import ai.koog.serialization.typeToken
+
+class CounterTool : SimpleTool<CounterTool.Args>(
+    argsType = typeToken<Args>()
+) {
     override val descriptor = ToolDescriptor(
         name = "counter",
         description = "Increment, decrement, or get the current counter value",
@@ -388,6 +411,7 @@ import ai.koog.agents.core.tools.SimpleTool;
 import ai.koog.agents.core.tools.ToolDescriptor;
 import ai.koog.agents.core.tools.ToolParameterDescriptor;
 import ai.koog.agents.core.tools.ToolParameterType;
+import java.util.List;
 
 public class CalculatorTool extends SimpleTool<CalculatorTool.Args> {
 

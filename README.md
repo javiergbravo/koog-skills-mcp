@@ -2,7 +2,7 @@
 
 MCP server that exposes the complete [Koog](https://koog.ai) framework documentation as searchable skills. Any MCP-capable client (Claude Code, Cursor, Windsurf, etc.) can query Koog's API reference, code examples, and best practices in real time.
 
-> **Koog version**: 0.8.0 | **Skills**: 38 | **License**: Apache-2.0
+> **Koog version**: `1.0.0` | **Skills**: 38 | **License**: Apache-2.0
 
 ## What It Does
 

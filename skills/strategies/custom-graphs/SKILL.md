@@ -1,7 +1,7 @@
 ---
 name: custom-graphs
 description: Build advanced custom strategy graphs with Koog's strategy builder, custom nodes, and complex workflows
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [custom-graph, strategy-builder, advanced, workflow, custom-node, complex]
 ---
@@ -17,22 +17,22 @@ Build advanced agent workflows as directed graphs using Koog's `strategy` builde
 ```kotlin
 import ai.koog.agents.core.dsl.builder.strategy
 import ai.koog.agents.core.dsl.builder.forwardTo
-import ai.koog.agents.core.dsl.builder.onAssistantMessage
-import ai.koog.agents.core.dsl.builder.onToolCall
+import ai.koog.agents.core.dsl.extension.onTextMessage
+import ai.koog.agents.core.dsl.extension.onToolCalls
 
 val myStrategy = strategy<String, String>("my-workflow") {
     // Define nodes
     val nodeProcessInput by nodeLLMRequest()
-    val nodeExecuteTool by nodeExecuteTool()
-    val nodeSendResult by nodeLLMSendToolResult()
+    val nodeExecuteTools by nodeExecuteTools()
+    val nodeSendResult by nodeLLMSendToolResults()
 
     // Define edges
     edge(nodeStart forwardTo nodeProcessInput)
-    edge(nodeProcessInput forwardTo nodeFinish onAssistantMessage { true })
-    edge(nodeProcessInput forwardTo nodeExecuteTool onToolCall { true })
-    edge(nodeExecuteTool forwardTo nodeSendResult)
-    edge(nodeSendResult forwardTo nodeFinish onAssistantMessage { true })
-    edge(nodeSendResult forwardTo nodeExecuteTool onToolCall { true })
+    edge(nodeProcessInput forwardTo nodeFinish onTextMessage { true })
+    edge(nodeProcessInput forwardTo nodeExecuteTools onToolCalls { true })
+    edge(nodeExecuteTools forwardTo nodeSendResult)
+    edge(nodeSendResult forwardTo nodeFinish onTextMessage { true })
+    edge(nodeSendResult forwardTo nodeExecuteTools onToolCalls { true })
 }
 ```
 
@@ -50,10 +50,8 @@ var graph = AIAgentGraphStrategy.builder("single_run")
 | Node | Input → Output | Purpose |
 |------|---------------|---------|
 | `nodeLLMRequest()` | `String → Message` | Send input to LLM, get response |
-| `nodeExecuteTool()` | `ToolCall → ToolResult` | Execute a tool call |
-| `nodeLLMSendToolResult()` | `ToolResult → Message` | Send tool result to LLM |
-| `nodeExecuteMultipleTools()` | `List<ToolCall> → List<ToolResult>` | Execute multiple tools concurrently |
-| `nodeLLMSendMultipleToolResults()` | `List<ToolResult> → Message` | Send multiple tool results to LLM |
+| `nodeExecuteTools()` | `List<ToolCall> → ReceivedToolResults` | Execute multiple tools concurrently |
+| `nodeLLMSendToolResults()` | `ReceivedToolResults → Message` | Send multiple tool results to LLM |
 | `nodeLLMCompressHistory<T>()` | `T → T` | Compress conversation history |
 | `nodeLLMRequestStructured<T>()` | `String → T` | Request structured output from LLM |
 
@@ -94,9 +92,8 @@ Edges define transitions between nodes. Use the `edge` function with `forwardTo`
 
 | Condition | Behavior |
 |-----------|----------|
-| `onAssistantMessage { true }` | Matches when the LLM responds with a message |
-| `onToolCall { true }` | Matches when the LLM calls a tool |
-| `onMultipleToolCalls { true }` | Matches when the LLM calls multiple tools |
+| `onTextMessage { true }` | Matches when the LLM responds with a message |
+| `onToolCalls { true }` | Matches when the LLM calls one or more tools |
 | `onToolNotCalled { true }` | Matches when the LLM does not call a tool |
 | `onCondition { input -> ... }` | General-purpose boolean condition |
 
@@ -125,17 +122,17 @@ edge((nodeAnalyze forwardTo branchB) onCondition { it == "deep" })
 Add conditional compression when the conversation grows too long:
 
 ```kotlin
-val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResult>()
+val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResults>()
 
 edge(
-    (nodeExecuteTool forwardTo nodeCompressHistory)
+    (nodeExecuteTools forwardTo nodeCompressHistory)
         onCondition { _ -> llm.readSession { prompt.messages.size > 100 } }
 )
 edge(
-    (nodeExecuteTool forwardTo nodeSendToolResult)
+    (nodeExecuteTools forwardTo nodeSendResult)
         onCondition { _ -> llm.readSession { prompt.messages.size <= 100 } }
 )
-edge(nodeCompressHistory forwardTo nodeSendToolResult)
+edge(nodeCompressHistory forwardTo nodeSendResult)
 ```
 
 ## Subgraphs
@@ -150,14 +147,14 @@ val firstSubgraph by subgraph<FirstInput, FirstOutput>(
     tools = listOf(someTool)
 ) {
     val nodeProcess by nodeLLMRequest()
-    val nodeExecute by nodeExecuteTool()
-    val nodeSendResult by nodeLLMSendToolResult()
+    val nodeExecuteTools by nodeExecuteTools()
+    val nodeSendResult by nodeLLMSendToolResults()
 
     edge(nodeStart forwardTo nodeProcess)
-    edge(nodeProcess forwardTo nodeFinish onAssistantMessage { true })
-    edge(nodeProcess forwardTo nodeExecute onToolCall { true })
-    edge(nodeExecute forwardTo nodeSendResult)
-    edge(nodeSendResult forwardTo nodeFinish onAssistantMessage { true })
+    edge(nodeProcess forwardTo nodeFinish onTextMessage { true })
+    edge(nodeProcess forwardTo nodeExecuteTools onToolCalls { true })
+    edge(nodeExecuteTools forwardTo nodeSendResult)
+    edge(nodeSendResult forwardTo nodeFinish onTextMessage { true })
 }
 ```
 
@@ -177,20 +174,20 @@ var subgraph = AIAgentSubgraph.builder("first")
 fun toneStrategy(name: String, toolRegistry: ToolRegistry): AIAgentGraphStrategy<String, String> {
     return strategy(name) {
         val nodeSendInput by nodeLLMRequest()
-        val nodeExecuteTool by nodeExecuteTool()
-        val nodeSendToolResult by nodeLLMSendToolResult()
-        val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResult>()
+        val nodeExecuteTools by nodeExecuteTools()
+        val nodeSendToolResults by nodeLLMSendToolResults()
+        val nodeCompressHistory by nodeLLMCompressHistory<ReceivedToolResults>()
 
         edge(nodeStart forwardTo nodeSendInput)
-        edge((nodeSendInput forwardTo nodeFinish) onAssistantMessage { true })
-        edge((nodeSendInput forwardTo nodeExecuteTool) onToolCall { true })
-        edge((nodeExecuteTool forwardTo nodeCompressHistory)
+        edge((nodeSendInput forwardTo nodeFinish) onTextMessage { true })
+        edge((nodeSendInput forwardTo nodeExecuteTools) onToolCalls { true })
+        edge((nodeExecuteTools forwardTo nodeCompressHistory)
             onCondition { _ -> llm.readSession { prompt.messages.size > 100 } })
-        edge(nodeCompressHistory forwardTo nodeSendToolResult)
-        edge((nodeExecuteTool forwardTo nodeSendToolResult)
+        edge(nodeCompressHistory forwardTo nodeSendToolResults)
+        edge((nodeExecuteTools forwardTo nodeSendToolResults)
             onCondition { _ -> llm.readSession { prompt.messages.size <= 100 } })
-        edge((nodeSendToolResult forwardTo nodeExecuteTool) onToolCall { true })
-        edge((nodeSendToolResult forwardTo nodeFinish) onAssistantMessage { true })
+        edge((nodeSendToolResults forwardTo nodeExecuteTools) onToolCalls { true })
+        edge((nodeSendToolResults forwardTo nodeFinish) onTextMessage { true })
     }
 }
 ```
@@ -239,7 +236,7 @@ val result = agent.run("Research the latest Kotlin coroutines features")
 | Issue | Likely Cause |
 |-------|-------------|
 | Graph never reaches `nodeFinish` | Missing paths, overly restrictive conditions, or infinite cycles |
-| Tools not executing | Tools not registered, or edge missing `onToolCall` condition |
+| Tools not executing | Tools not registered, or edge missing `onToolCalls` condition |
 | History too large | Needs compression node or more aggressive compression strategy |
 | Unexpected branches | Condition ordering issues or overly general conditions |
 | Performance problems | Unnecessary nodes, missing parallelism, or uncompressed history |

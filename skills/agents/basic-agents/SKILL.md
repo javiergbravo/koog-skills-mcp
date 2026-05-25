@@ -1,14 +1,14 @@
 ---
 name: basic-agents
 description: Create basic AI agents with AIAgent, system prompts, tool registration, and event handling in Koog
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [agent, basic, system-prompt, tool, event, temperature, max-iterations]
 ---
 
 # Basic Agents
 
-Learn how to create and configure AI agents using the `AIAgent` class in Koog 0.8.0.
+Learn how to create and configure AI agents using the `AIAgent` class in Koog 1.0.0.
 
 ## Minimal Agent
 
@@ -222,7 +222,7 @@ public class MyAgent {
             .build();
 
         // Run agent
-        String result = agent.run("What tools do you have?");
+        String result = agent.runBlocking("What tools do you have?");
         System.out.println(result);
     }
 }

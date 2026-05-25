@@ -1,7 +1,7 @@
 ---
 name: graph-based-agents
 description: Build custom agent workflows using Koog's graph-based strategy builder with nodes, edges, and conditional routing
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [graph, strategy, workflow, nodes, edges, state-machine, conditional]
 ---
@@ -24,23 +24,23 @@ Koog's graph-based strategy system lets you define agent workflows as directed g
 ```kotlin
 import ai.koog.agents.core.strategy.strategy
 import ai.koog.agents.core.strategy.nodeLLMRequest
-import ai.koog.agents.core.strategy.nodeExecuteTool
-import ai.koog.agents.core.strategy.nodeLLMSendToolResult
+import ai.koog.agents.core.strategy.nodeExecuteTools
+import ai.koog.agents.core.strategy.nodeLLMSendToolResults
 import ai.koog.agents.core.strategy.nodeStart
 import ai.koog.agents.core.strategy.nodeFinish
 
 val myStrategy = strategy("simple-tool-loop") {
     // Define nodes
     val llmRequest by nodeLLMRequest()
-    val executeTool by nodeExecuteTool()
-    val sendToolResult by nodeLLMSendToolResult()
+    val executeTools by nodeExecuteTools()
+    val sendToolResults by nodeLLMSendToolResults()
 
     // Define edges
     edge(nodeStart forwardTo llmRequest)
-    edge(llmRequest forwardTo executeTool onToolCall { true })
+    edge(llmRequest forwardTo executeTools onToolCall { true })
     edge(llmRequest forwardTo nodeFinish onAssistantMessage { true })
-    edge(executeTool forwardTo sendToolResult)
-    edge(sendToolResult forwardTo llmRequest)
+    edge(executeTools forwardTo sendToolResults)
+    edge(sendToolResults forwardTo llmRequest)
 }
 ```
 
@@ -58,25 +58,25 @@ The LLM may respond with:
 - An assistant message → triggers `onAssistantMessage` edges
 - A tool call → triggers `onToolCall` edges
 
-### nodeExecuteTool
+### nodeExecuteTools
 
-Executes a tool call from the LLM's response:
-
-```kotlin
-val execute by nodeExecuteTool()
-```
-
-Takes the tool call from the previous LLM response, executes it, and stores the result.
-
-### nodeLLMSendToolResult
-
-Sends the tool execution result back to the LLM:
+Executes one or more tool calls from the LLM's response:
 
 ```kotlin
-val sendResult by nodeLLMSendToolResult()
+val execute by nodeExecuteTools()
 ```
 
-This node sends the tool result as a tool message and gets the LLM's next response.
+Takes the tool calls from the previous LLM response, executes them, and stores the results.
+
+### nodeLLMSendToolResults
+
+Sends the tool execution results back to the LLM:
+
+```kotlin
+val sendResults by nodeLLMSendToolResults()
+```
+
+This node sends the tool results as tool messages and gets the LLM's next response.
 
 ## Special Nodes
 
@@ -106,7 +106,7 @@ Triggered when the LLM requests a tool call:
 
 ```kotlin
 // Always follow this edge on tool calls
-edge(llm forwardTo executeTool onToolCall { true })
+edge(llm forwardTo executeTools onToolCall { true })
 
 // Conditional: only for specific tools
 edge(llm forwardTo calculatorNode onToolCall { toolCall ->
@@ -133,7 +133,7 @@ edge(llm forwardTo validator onAssistantMessage { message ->
 Transform the data flowing between nodes:
 
 ```kotlin
-edge(llm forwardTo executeTool withTransform { context ->
+edge(llm forwardTo executeTools withTransform { context ->
     // Transform the tool call before execution
     context.copy(args = modifiedArgs)
 })
@@ -165,8 +165,8 @@ import ai.koog.agents.core.tools.SimpleTool
 import ai.koog.agents.core.tools.ToolDescriptor
 import ai.koog.agents.core.strategy.strategy
 import ai.koog.agents.core.strategy.nodeLLMRequest
-import ai.koog.agents.core.strategy.nodeExecuteTool
-import ai.koog.agents.core.strategy.nodeLLMSendToolResult
+import ai.koog.agents.core.strategy.nodeExecuteTools
+import ai.koog.agents.core.strategy.nodeLLMSendToolResults
 import ai.koog.agents.core.strategy.nodeStart
 import ai.koog.agents.core.strategy.nodeFinish
 import ai.koog.agents.ext.simple.simpleOpenAIExecutor
@@ -193,23 +193,23 @@ object CalculatorTool : SimpleTool<CalculatorTool.Args>() {
 // Define the strategy
 val calculatorStrategy = strategy("calculator-workflow") {
     val llmRequest by nodeLLMRequest()
-    val executeTool by nodeExecuteTool()
-    val sendToolResult by nodeLLMSendToolResult()
+    val executeTools by nodeExecuteTools()
+    val sendToolResults by nodeLLMSendToolResults()
 
     // Start → LLM
     edge(nodeStart forwardTo llmRequest)
 
     // LLM → Tool execution (when tool is called)
-    edge(llmRequest forwardTo executeTool onToolCall { true })
+    edge(llmRequest forwardTo executeTools onToolCall { true })
 
     // LLM → Finish (when no tool is called)
     edge(llmRequest forwardTo nodeFinish onAssistantMessage { true })
 
     // Tool execution → Send result back to LLM
-    edge(executeTool forwardTo sendToolResult)
+    edge(executeTools forwardTo sendToolResults)
 
     // Send result → Loop back to LLM for next step
-    edge(sendToolResult forwardTo llmRequest)
+    edge(sendToolResults forwardTo llmRequest)
 }
 
 // Create the agent
@@ -254,14 +254,14 @@ public class CalculatorAgent {
         // Define strategy
         var strategy = StrategyKt.strategy("calculator-workflow", builder -> {
             var llmRequest = builder.nodeLLMRequest();
-            var executeTool = builder.nodeExecuteTool();
-            var sendToolResult = builder.nodeLLMSendToolResult();
+            var executeTools = builder.nodeExecuteTools();
+            var sendToolResults = builder.nodeLLMSendToolResults();
 
             builder.edge(builder.nodeStart(), llmRequest);
-            builder.edge(llmRequest, executeTool, builder.onToolCall(t -> true));
+            builder.edge(llmRequest, executeTools, builder.onToolCall(t -> true));
             builder.edge(llmRequest, builder.nodeFinish(), builder.onAssistantMessage(m -> true));
-            builder.edge(executeTool, sendToolResult);
-            builder.edge(sendToolResult, llmRequest);
+            builder.edge(executeTools, sendToolResults);
+            builder.edge(sendToolResults, llmRequest);
 
             return null;
         });
@@ -295,8 +295,8 @@ The most common pattern — alternate between LLM reasoning and tool execution:
 ```kotlin
 val reactStrategy = strategy("react") {
     val think by nodeLLMRequest()
-    val act by nodeExecuteTool()
-    val observe by nodeLLMSendToolResult()
+    val act by nodeExecuteTools()
+    val observe by nodeLLMSendToolResults()
 
     edge(nodeStart forwardTo think)
     edge(think forwardTo act onToolCall { true })
@@ -313,7 +313,7 @@ Sequential processing with different nodes:
 ```kotlin
 val pipelineStrategy = strategy("pipeline") {
     val analyze by nodeLLMRequest()
-    val research by nodeExecuteTool()
+    val research by nodeExecuteTools()
     val synthesize by nodeLLMRequest()
     val format by nodeLLMRequest()
 
@@ -333,7 +333,7 @@ Route to different nodes based on conditions:
 val branchStrategy = strategy("branching") {
     val classify by nodeLLMRequest()
     val simpleHandler by nodeLLMRequest()
-    val complexHandler by nodeExecuteTool()
+    val complexHandler by nodeExecuteTools()
     val finalResponse by nodeLLMRequest()
 
     edge(nodeStart forwardTo classify)
@@ -358,8 +358,8 @@ val branchStrategy = strategy("branching") {
 |----------------|-------------|
 | `strategy(name) { }` | Create a named strategy |
 | `nodeLLMRequest()` | LLM call node |
-| `nodeExecuteTool()` | Tool execution node |
-| `nodeLLMSendToolResult()` | Send tool result to LLM |
+| `nodeExecuteTools()` | Tool execution node (handles multiple tools) |
+| `nodeLLMSendToolResults()` | Send tool results to LLM |
 | `nodeStart` | Entry point (built-in) |
 | `nodeFinish` | Exit point (built-in) |
 | `node<I, O> { }` | Custom node with input/output types |

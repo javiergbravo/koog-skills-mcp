@@ -1,7 +1,7 @@
 ---
 name: persistence
 description: Save and restore AI agent state with Koog's snapshot feature for checkpoint-based recovery
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [persistence, snapshot, checkpoint, restore, state, recovery]
 ---
@@ -25,8 +25,8 @@ The persistence feature provides:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
-    implementation("ai.koog:agents-features-snapshot:0.8.0")
+    implementation("ai.koog:agents-core:1.0.0")
+    implementation("ai.koog:agents-features-snapshot:1.0.0")
 }
 ```
 
@@ -38,6 +38,7 @@ import ai.koog.agents.features.snapshot.Snapshot
 import ai.koog.agents.features.snapshot.SnapshotConfig
 import ai.koog.agents.ext.llm.OpenAIModels
 import ai.koog.agents.ext.simple.simpleOpenAIExecutor
+import ai.koog.agents.features.snapshot.storage.FileSnapshotStorage
 
 val agent = AIAgent(
     promptExecutor = simpleOpenAIExecutor(apiKey),
@@ -45,7 +46,7 @@ val agent = AIAgent(
 ) {
     install(Snapshot) {
         // Configure snapshot storage
-        storage = FileSnapshotStorage("snapshots/")
+        storage = FileSnapshotStorage(directory = "snapshots/")
 
         // Enable automatic checkpoints
         autoCheckpoint = true
@@ -73,6 +74,8 @@ install(Snapshot) {
 ### In-Memory Storage
 
 ```kotlin
+import ai.koog.agents.features.snapshot.storage.InMemorySnapshotStorage
+
 install(Snapshot) {
     storage = InMemorySnapshotStorage()
 }
@@ -82,6 +85,7 @@ install(Snapshot) {
 
 ```kotlin
 import ai.koog.agents.features.snapshot.SnapshotStorage
+import kotlinx.datetime.Clock
 
 class DatabaseSnapshotStorage(
     private val database: Database
@@ -197,7 +201,7 @@ val agent = AIAgent(
     llmModel = model
 ) {
     install(Snapshot) {
-        storage = FileSnapshotStorage("snapshots/")
+        storage = FileSnapshotStorage(directory = "snapshots/")
 
         // Enable automatic crash recovery
         recoveryStrategy = RecoveryStrategy.AUTOMATIC
@@ -221,7 +225,7 @@ val result = agent.run("Long-running task...")
 import ai.koog.agents.features.snapshot.RecoveryStrategy
 
 install(Snapshot) {
-    storage = FileSnapshotStorage("snapshots/")
+    storage = FileSnapshotStorage(directory = "snapshots/")
     recoveryStrategy = RecoveryStrategy.MANUAL
 }
 
@@ -247,7 +251,7 @@ suspend fun processLargeDataset(items: List<Item>) {
         llmModel = model
     ) {
         install(Snapshot) {
-            storage = FileSnapshotStorage("snapshots/")
+            storage = FileSnapshotStorage(directory = "snapshots/")
             checkpointAfterEachNode = true
         }
     }
@@ -276,7 +280,7 @@ suspend fun resumablePipeline(input: String): String {
         llmModel = model
     ) {
         install(Snapshot) {
-            storage = FileSnapshotStorage("snapshots/")
+            storage = FileSnapshotStorage(directory = "snapshots/")
             checkpointAfterEachNode = true
         }
     }
@@ -300,7 +304,7 @@ suspend fun resumablePipeline(input: String): String {
 data class AgentSnapshot(
     val agentId: String,                    // Unique agent identifier
     val checkpointName: String,             // Checkpoint name
-    val timestamp: Instant,                 // When checkpoint was created
+    val timestamp: kotlinx.datetime.Instant,                 // When checkpoint was created
     val executionState: ExecutionState,     // Current execution state
     val conversationHistory: List<Message>, // Full conversation history
     val toolCallHistory: List<ToolCall>,    // Tool call history
@@ -321,6 +325,13 @@ Use an encrypted storage backend for snapshots that contain sensitive data. Comb
 AES-256-GCM encryption (see [Memory Encryption](../../memory-and-rag/memory-encryption/SKILL.md)):
 
 ```kotlin
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import java.io.File
+import ai.koog.agents.features.snapshot.SnapshotStorage
+import ai.koog.agents.features.snapshot.AgentSnapshot
+
 class EncryptedFileSnapshotStorage(
     private val directory: String,
     private val encryptor: Aes256GCMEncryptor
@@ -379,7 +390,7 @@ File("snapshots/").listFiles()
 ```java
 import ai.koog.agents.features.snapshot.Snapshot;
 import ai.koog.agents.features.snapshot.SnapshotConfig;
-import ai.koog.agents.features.snapshot.FileSnapshotStorage;
+import ai.koog.agents.features.snapshot.storage.FileSnapshotStorage;
 
 var agent = AIAgent.builder(executor, model)
     .withFeature(Snapshot.INSTANCE, config -> {

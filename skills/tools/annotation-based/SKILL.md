@@ -1,7 +1,7 @@
 ---
 name: annotation-based-tools
 description: Create tools using @Tool and @LLMDescription annotations in Koog for automatic tool registration
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [tool, annotation, tool-description, llm-description, toolset, parameters]
 ---
@@ -174,7 +174,11 @@ suspend fun writeFile(
 ): String {
     val file = File(path)
     file.parentFile?.mkdirs()
-    file.writeText(content)
+    if (append) {
+        file.appendText(content)
+    } else {
+        file.writeText(content)
+    }
     return "Successfully wrote ${content.length} characters to '$path'"
 }
 ```
