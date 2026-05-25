@@ -1,7 +1,7 @@
 ---
 name: event-handlers
 description: Handle agent events with Koog's EventHandler feature for tool calls, LLM streaming, and execution lifecycle
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [event, handler, tool-call, streaming, lifecycle, callback, handle-events]
 ---
@@ -14,9 +14,9 @@ Koog's `EventHandler` feature provides a comprehensive event system for monitori
 
 The EventHandler feature allows you to:
 
-- Monitor tool calls (start, finish, errors)
+- Monitor tool calls (start, finish, errors, metadata contribution)
 - Observe LLM streaming in real-time
-- Track agent execution lifecycle
+- Track agent execution lifecycle including LLM call failures
 - Implement custom logging, metrics, and debugging
 - React to events without modifying agent logic
 
@@ -25,7 +25,7 @@ The EventHandler feature allows you to:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
 }
 ```
 
@@ -86,6 +86,21 @@ install(EventHandler) {
 }
 ```
 
+### onToolCallMetadataContributing
+
+Fired before a tool call to contribute per-call metadata (e.g., trace span id):
+
+```kotlin
+install(EventHandler) {
+    handleEvents {
+        onToolCallMetadataContributing { context ->
+            println("Contributing metadata for tool call: ${context.toolName}")
+            context.metadata["traceId"] = generateTraceId()
+        }
+    }
+}
+```
+
 ### onToolCallFinished
 
 Fired when a tool call completes:
@@ -135,6 +150,10 @@ install(EventHandler) {
             println("  Arguments: ${context.arguments}")
         }
 
+        onToolCallMetadataContributing { context ->
+            println("[META] Tool: ${context.toolName} metadata: ${context.metadata}")
+        }
+
         onToolCallFinished { context ->
             println("[DONE] Tool: ${context.toolName}")
             println("  Result: ${context.result}")
@@ -144,6 +163,42 @@ install(EventHandler) {
         onToolCallFailed { context ->
             println("[FAIL] Tool: ${context.toolName}")
             println("  Error: ${context.error.message}")
+        }
+    }
+}
+```
+
+## LLM Call Events
+
+### onLLMCallCompleted
+
+Fired when an LLM call completes successfully:
+
+```kotlin
+install(EventHandler) {
+    handleEvents {
+        onLLMCallCompleted { context ->
+            println("LLM call completed in ${context.duration}ms")
+            println("Response: ${context.response}")
+        }
+    }
+}
+```
+
+### onLLMCallFailed
+
+Fired when an LLM call fails:
+
+```kotlin
+install(EventHandler) {
+    handleEvents {
+        onLLMCallFailed { context ->
+            println("LLM call failed: ${context.error.message}")
+
+            // Implement retry or fallback
+            if (context.error is TimeoutException) {
+                alerting.send("LLM call timeout")
+            }
         }
     }
 }
@@ -250,11 +305,22 @@ Each event handler receives a context object with relevant information:
 
 ```kotlin
 data class ToolCallContext(
-    val toolName: String,        // Name of the tool
-    val arguments: String,       // JSON arguments
-    val result: String?,         // Result (null if starting)
-    val error: Throwable?,       // Error (null if successful)
-    val duration: Long           // Duration in ms
+    val toolName: String,                // Name of the tool
+    val arguments: String,               // JSON arguments
+    val result: String?,                 // Result (null if starting)
+    val error: Throwable?,               // Error (null if successful)
+    val duration: Long,                  // Duration in ms
+    val metadata: MutableMap<String, Any> // Metadata map for per-call contributions
+)
+```
+
+### LLMCallContext
+
+```kotlin
+data class LLMCallContext(
+    val response: String?,               // LLM response (null if failed)
+    val error: Throwable?,               // Error (null if successful)
+    val duration: Long                   // Duration in ms
 )
 ```
 
@@ -262,9 +328,9 @@ data class ToolCallContext(
 
 ```kotlin
 data class StreamingContext(
-    val frameCount: Int,         // Number of frames received
-    val duration: Long,          // Total duration in ms
-    val error: Throwable?        // Error (null if successful)
+    val frameCount: Int,                 // Number of frames received
+    val duration: Long,                  // Total duration in ms
+    val error: Throwable?                // Error (null if successful)
 )
 ```
 
@@ -282,11 +348,20 @@ class AgentLogger {
                 onToolCallStarting { ctx ->
                     log.info("Tool starting: ${ctx.toolName} with ${ctx.arguments}")
                 }
+                onToolCallMetadataContributing { ctx ->
+                    log.debug("Tool metadata: ${ctx.metadata}")
+                }
                 onToolCallFinished { ctx ->
                     log.info("Tool finished: ${ctx.toolName} in ${ctx.duration}ms")
                 }
                 onToolCallFailed { ctx ->
                     log.error("Tool failed: ${ctx.toolName}", ctx.error)
+                }
+                onLLMCallCompleted { ctx ->
+                    log.info("LLM call completed in ${ctx.duration}ms")
+                }
+                onLLMCallFailed { ctx ->
+                    log.error("LLM call failed", ctx.error)
                 }
                 onLLMStreamingFrameReceived { frame ->
                     if (frame is StreamFrame.TextDelta) {
@@ -335,6 +410,9 @@ install(EventHandler) {
             println("┌─ Tool Call ─────────────────────")
             println("│ Tool: ${ctx.toolName}")
             println("│ Args: ${ctx.arguments}")
+        }
+        onToolCallMetadataContributing { ctx ->
+            println("│ Metadata: ${ctx.metadata}")
         }
         onToolCallFinished { ctx ->
             println("│ Result: ${ctx.result}")
@@ -387,8 +465,18 @@ var agent = AIAgent.builder(executor, model)
             events.onToolCallStarting(ctx -> {
                 System.out.println("Tool starting: " + ctx.getToolName());
             });
+            events.onToolCallMetadataContributing(ctx -> {
+                System.out.println("Contributing metadata for tool: " + ctx.getToolName());
+                ctx.getMetadata().put("traceId", generateTraceId());
+            });
             events.onToolCallFinished(ctx -> {
                 System.out.println("Tool finished: " + ctx.getToolName());
+            });
+            events.onToolCallFailed(ctx -> {
+                System.out.println("Tool failed: " + ctx.getToolName());
+            });
+            events.onLLMCallFailed(ctx -> {
+                System.out.println("LLM call failed: " + ctx.getError().getMessage());
             });
             return null;
         });

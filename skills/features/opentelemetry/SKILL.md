@@ -1,7 +1,7 @@
 ---
 name: opentelemetry
 description: Monitor AI agents with Koog's OpenTelemetry integration including Langfuse, Weave, and Datadog exporters
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [opentelemetry, langfuse, weave, datadog, monitoring, observability, exporter]
 ---
@@ -25,8 +25,8 @@ OpenTelemetry integration enables:
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
-    implementation("ai.koog:agents-features-opentelemetry:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:agents-features-opentelemetry:1.0.0")
 
     // Exporter-specific dependencies
     implementation("io.opentelemetry:opentelemetry-exporter-otlp:1.46.0")
@@ -72,7 +72,7 @@ install(OpenTelemetry) {
     exporter = LangfuseExporter(
         publicKey = System.getenv("LANGFUSE_PUBLIC_KEY"),
         secretKey = System.getenv("LANGFUSE_SECRET_KEY"),
-        host = "https://cloud.langfuse.com" // or self-hosted URL
+        host = System.getenv("LANGFUSE_HOST") ?: "https://cloud.langfuse.com" // or self-hosted URL
     )
 
     // Langfuse-specific options
@@ -127,8 +127,8 @@ import ai.koog.agents.features.opentelemetry.exporters.WeaveExporter
 install(OpenTelemetry) {
     exporter = WeaveExporter(
         apiKey = System.getenv("WANDB_API_KEY"),
-        entity = "my-team",
-        project = "my-agent-project"
+        entity = System.getenv("WANDB_ENTITY") ?: "my-team",
+        project = System.getenv("WANDB_PROJECT") ?: "my-agent-project"
     )
 
     // Weave-specific options
@@ -143,8 +143,8 @@ install(OpenTelemetry) {
 install(OpenTelemetry) {
     exporter = WeaveExporter(
         apiKey = System.getenv("WANDB_API_KEY"),
-        entity = "my-team",
-        project = "my-agent-project"
+        entity = System.getenv("WANDB_ENTITY") ?: "my-team",
+        project = System.getenv("WANDB_PROJECT") ?: "my-agent-project"
     )
 
     // Log custom metrics
@@ -172,8 +172,8 @@ import ai.koog.agents.features.opentelemetry.exporters.DatadogExporter
 install(OpenTelemetry) {
     exporter = DatadogExporter(
         apiKey = System.getenv("DD_API_KEY"),
-        site = "datadoghq.com", // or datadoghq.eu
-        serviceName = "my-koog-agent"
+        site = System.getenv("DD_SITE") ?: "datadoghq.com", // or datadoghq.eu
+        serviceName = System.getenv("DD_SERVICE") ?: "my-koog-agent"
     )
 
     // Datadog-specific options
@@ -188,8 +188,8 @@ install(OpenTelemetry) {
 install(OpenTelemetry) {
     exporter = DatadogExporter(
         apiKey = System.getenv("DD_API_KEY"),
-        site = "datadoghq.com",
-        serviceName = "my-koog-agent"
+        site = System.getenv("DD_SITE") ?: "datadoghq.com",
+        serviceName = System.getenv("DD_SERVICE") ?: "my-koog-agent"
     )
 
     // Custom tags
@@ -213,6 +213,7 @@ Use the standard OTLP exporter for any OpenTelemetry-compatible backend.
 ```kotlin
 import ai.koog.agents.features.opentelemetry.OpenTelemetry
 import ai.koog.agents.features.opentelemetry.exporters.OtlpExporter
+import ai.koog.agents.features.opentelemetry.exporters.OtlpProtocol
 
 install(OpenTelemetry) {
     exporter = OtlpExporter(
@@ -333,8 +334,8 @@ install(OpenTelemetry) {
         ),
         DatadogExporter(
             apiKey = System.getenv("DD_API_KEY"),
-            site = "datadoghq.com",
-            serviceName = "my-koog-agent"
+            site = System.getenv("DD_SITE") ?: "datadoghq.com",
+            serviceName = System.getenv("DD_SERVICE") ?: "my-koog-agent"
         ),
         OtlpExporter(
             endpoint = "http://localhost:4317",
@@ -381,7 +382,7 @@ var agent = AIAgent.builder(executor, model)
         config.setExporter(new LangfuseExporter(
             System.getenv("LANGFUSE_PUBLIC_KEY"),
             System.getenv("LANGFUSE_SECRET_KEY"),
-            "https://cloud.langfuse.com"
+            System.getenv("LANGFUSE_HOST") != null ? System.getenv("LANGFUSE_HOST") : "https://cloud.langfuse.com"
         ));
         config.setTracesEnabled(true);
         config.setMetricsEnabled(true);

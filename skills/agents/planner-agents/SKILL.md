@@ -1,7 +1,7 @@
 ---
 name: planner-agents
 description: Create planner agents that iteratively build and execute plans using LLM-based planners or GOAP in Koog
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [planner, plan, goap, iterative, planning, goal]
 ---
@@ -19,8 +19,8 @@ LLM planners use the language model to generate step-by-step plans, then execute
 ```kotlin
 import ai.koog.agents.core.agent.AIAgent
 import ai.koog.agents.core.strategy.strategy
-import ai.koog.agents.core.strategy.nodeLLMRequest
-import ai.koog.agents.core.strategy.nodeExecuteTool
+import ai.koog.agents.core.strategy.nodeLLMSendMessage
+import ai.koog.agents.core.strategy.nodeExecuteTools
 import ai.koog.agents.core.strategy.nodeStart
 import ai.koog.agents.core.strategy.nodeFinish
 import ai.koog.agents.ext.simple.simpleOpenAIExecutor
@@ -29,16 +29,16 @@ import ai.koog.agents.ext.llm.OpenAIModels
 // Define a planning strategy
 val plannerStrategy = strategy("planner") {
     // Step 1: Generate plan
-    val planNode by nodeLLMRequest()
+    val planNode by nodeLLMSendMessage()
 
     // Step 2: Execute next step
-    val executeStep by nodeExecuteTool()
+    val executeStep by nodeExecuteTools()
 
     // Step 3: Evaluate progress
-    val evaluate by nodeLLMRequest()
+    val evaluate by nodeLLMSendMessage()
 
     // Step 4: Final summary
-    val summarize by nodeLLMRequest()
+    val summarize by nodeLLMSendMessage()
 
     edge(nodeStart forwardTo planNode)
 
@@ -95,11 +95,11 @@ val trackStep by node<String, String> { step ->
 }
 
 val plannerWithTracking = strategy("tracked-planner") {
-    val plan by nodeLLMRequest()
+    val plan by nodeLLMSendMessage()
     val track by trackStep
-    val execute by nodeExecuteTool()
-    val evaluate by nodeLLMRequest()
-    val complete by nodeLLMRequest()
+    val execute by nodeExecuteTools()
+    val evaluate by nodeLLMSendMessage()
+    val complete by nodeLLMSendMessage()
 
     edge(nodeStart forwardTo plan)
     edge(plan forwardTo execute onToolCall { true })
@@ -262,11 +262,11 @@ val revisedPlan = planner.plan(updatedState)
 
 ```kotlin
 val replanStrategy = strategy("replan-on-failure") {
-    val plan by nodeLLMRequest()
-    val execute by nodeExecuteTool()
-    val evaluate by nodeLLMRequest()
-    val replan by nodeLLMRequest()
-    val finalResponse by nodeLLMRequest()
+    val plan by nodeLLMSendMessage()
+    val execute by nodeExecuteTools()
+    val evaluate by nodeLLMSendMessage()
+    val replan by nodeLLMSendMessage()
+    val finalResponse by nodeLLMSendMessage()
 
     edge(nodeStart forwardTo plan)
     edge(plan forwardTo execute onToolCall { true })
@@ -293,14 +293,14 @@ val replanStrategy = strategy("replan-on-failure") {
 ```kotlin
 val hierarchicalStrategy = strategy("hierarchical-planner") {
     // High-level planning
-    val decompose by nodeLLMRequest()
+    val decompose by nodeLLMSendMessage()
 
     // Sub-task execution
-    val executeSubtask by nodeExecuteTool()
-    val evaluateSubtask by nodeLLMRequest()
+    val executeSubtask by nodeExecuteTools()
+    val evaluateSubtask by nodeLLMSendMessage()
 
     // Integration
-    val integrate by nodeLLMRequest()
+    val integrate by nodeLLMSendMessage()
 
     edge(nodeStart forwardTo decompose)
     edge(decompose forwardTo executeSubtask onToolCall { true })

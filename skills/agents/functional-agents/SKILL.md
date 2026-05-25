@@ -1,7 +1,7 @@
 ---
 name: functional-agents
 description: Define custom agent logic as lambda functions in plain Kotlin or Java with Koog's functional agent API
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [functional, lambda, kotlin, java, custom-logic]
 ---
@@ -111,11 +111,11 @@ public class FunctionalAgent {
             .build();
 
         // Simple run
-        String result = agent.run("Search for articles about AI agents");
+        String result = agent.runBlocking("Search for articles about AI agents");
         System.out.println(result);
 
         // Functional run with context
-        String result2 = agent.runWithContext(ctx -> {
+        String result2 = agent.runWithContextBlocking(ctx -> {
             String search = ctx.chat("Find articles about Koog framework");
             String summary = ctx.chat("Summarize the key points");
             return "Search: " + search + "\n\nSummary: " + summary;

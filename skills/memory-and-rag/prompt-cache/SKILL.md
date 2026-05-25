@@ -1,7 +1,7 @@
 ---
 name: prompt-cache
 description: "Cache LLM prompt responses with Koog's prompt-cache modules: in-memory, file-based, and Redis caching"
-compatibility: "Koog 0.8.0"
+compatibility: "Koog 1.0.0"
 license: Apache-2.0
 keywords: [prompt-cache, cache, redis, file-cache, memory-cache, optimization, token-saving]
 ---
@@ -33,16 +33,16 @@ The `CachedPromptExecutor` acts as a decorator — it intercepts `execute()` cal
 ```kotlin
 // Core + File-based cache
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
-    implementation("ai.koog:prompt-cache-model:0.8.0")
-    implementation("ai.koog:prompt-cache-files:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:prompt-cache-model:1.0.0")
+    implementation("ai.koog:prompt-cache-files:1.0.0")
 }
 
 // Or with Redis
 dependencies {
-    implementation("ai.koog:koog-agents:0.8.0")
-    implementation("ai.koog:prompt-cache-model:0.8.0")
-    implementation("ai.koog:prompt-cache-redis:0.8.0")
+    implementation("ai.koog:koog-agents:1.0.0")
+    implementation("ai.koog:prompt-cache-model:1.0.0")
+    implementation("ai.koog:prompt-cache-redis:1.0.0")
 }
 ```
 
@@ -57,6 +57,7 @@ import ai.koog.agents.core.prompt.cache.CachedPromptExecutor
 import ai.koog.agents.core.prompt.cache.files.FilePromptCache
 import ai.koog.clients.openai.OpenAILLMClient
 import ai.koog.agents.ext.prompt.executor.MultiLLMPromptExecutor
+import kotlin.io.path.Path
 
 val client = OpenAILLMClient(System.getenv("OPENAI_API_KEY"))
 val promptExecutor = MultiLLMPromptExecutor(client)
@@ -80,12 +81,14 @@ import ai.koog.agents.core.prompt.cache.CachedPromptExecutor;
 import ai.koog.agents.core.prompt.cache.files.FilePromptCache;
 import ai.koog.clients.openai.OpenAILLMClient;
 import ai.koog.agents.ext.prompt.executor.MultiLLMPromptExecutor;
+import java.nio.file.Path;
+import kotlinx.datetime.Clock;
 
 OpenAILLMClient client = new OpenAILLMClient(System.getenv("OPENAI_API_KEY"));
 MultiLLMPromptExecutor promptExecutor = new MultiLLMPromptExecutor(client);
 
 FilePromptCache cache = new FilePromptCache(
-    Path.of("path/to/cache/directory"), null
+    Path.of("path/to/cache/directory")
 );
 CachedPromptExecutor cachedExecutor = new CachedPromptExecutor(
     cache, promptExecutor, Clock.System.INSTANCE
@@ -108,6 +111,7 @@ Stores cached responses as files on disk:
 
 ```kotlin
 import ai.koog.agents.core.prompt.cache.files.FilePromptCache
+import kotlin.io.path.Path
 
 val cache = FilePromptCache(Path("/path/to/cache/directory"))
 ```
@@ -172,6 +176,7 @@ import ai.koog.clients.openai.OpenAILLMClient
 import ai.koog.agents.ext.prompt.executor.MultiLLMPromptExecutor
 import ai.koog.agents.ext.llm.OpenAIModels
 import ai.koog.prompt.dsl.prompt
+import kotlin.io.path.Path
 
 suspend fun main() {
     val apiKey = System.getenv("OPENAI_API_KEY")
